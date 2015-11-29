@@ -7,60 +7,89 @@
   <title>Backbone dbmon</title>
 </head>
 <body>
+	<div class="container">
+	<form class="form-horizontal" id="config-panel">
+  		<div class="form-group">
+    		<label class="col-sm-2 control-label">
+    			Mutations: <span class="text"></span>%
+    		</label>
+    		<div class="col-sm-10">
+      			<input type="range" name="mutations">
+    		</div>
+  		</div>
+  		<div class="form-group">
+    		<label class="col-sm-2 control-label">
+    			Render strategy:
+    		</label>
+    		<div class="col-sm-10">
+    			<div class="radio"><label><input type="radio" name="render" value="Handlebars"> Handlebars </label></div>
+      			<div class="radio"><label><input type="radio" name="render" value="jQuery"> jQuery/Zepto </label></div>
+      			<div class="radio"><label><input type="radio" name="render" value="DOM"> DOM </label></div>
+            <div class="radio"><label><input type="radio" name="render" value="iDOM"> Incremental DOM </label></div>
+            <div class="radio"><label><input type="radio" name="render" value="vDOM"> Virtual DOM </label></div>
+    		</div>
+  		</div>
+
+  		<div class="form-group">
+  			<label class="col-sm-2 control-label">Optimizations</label>
+    		<div class="col-sm-10">
+      			<div class="checkbox"><label><input type="checkbox" name="reqAnimFrm">Request animation frame</label></div>
+      			<div class="checkbox"><label><input type="checkbox" name="cacheElems">Cache dom/jquery elements</label></div>
+    		</div>
+  		</div>
+  	</form>
+	</div>
 	<div id="dbmon">
 		<table class="table table-striped latest-data">
 			<tbody></tbody>
 		</table>
 	</div>
 	<script type="text/html" id="table-row">
-	      	<td class="dbname">
-	      	</td>
-	      	<td class="query-count">
-	        	<span>
-	        	</span>
-	  		</td>
-			<td class="Query">
-			  <span></span>
-	          <div class="popover left">
-	            <div class="popover-content"></div>
-	            <div class="arrow"></div>
-	          </div>
-	        </td>
-			<td class="Query">
-			  <span></span>
-	          <div class="popover left">
-	            <div class="popover-content"></div>
-	            <div class="arrow"></div>
-	          </div>
-	        </td>
-			<td class="Query">
-			  <span></span>
-	          <div class="popover left">
-	            <div class="popover-content"></div>
-	            <div class="arrow"></div>
-	          </div>
-	        </td>
-			<td class="Query">
-			  <span></span>
-	          <div class="popover left">
-	            <div class="popover-content"></div>
-	            <div class="arrow"></div>
-	          </div>
-	        </td>
-			<td class="Query">
-			  <span></span>
-	          <div class="popover left">
-	            <div class="popover-content"></div>
-	            <div class="arrow"></div>
-	          </div>
-	        </td>
+      	<td class="dbname">
+      	</td>
+      	<td class="query-count">
+        	<span>
+        	</span>
+  		</td>
+		<td class="Query">
+		  <span></span>
+          <div class="popover left">
+            <div class="popover-content"></div>
+            <div class="arrow"></div>
+          </div>
+        </td>
+		<td class="Query">
+		  <span></span>
+          <div class="popover left">
+            <div class="popover-content"></div>
+            <div class="arrow"></div>
+          </div>
+        </td>
+		<td class="Query">
+		  <span></span>
+          <div class="popover left">
+            <div class="popover-content"></div>
+            <div class="arrow"></div>
+          </div>
+        </td>
+		<td class="Query">
+		  <span></span>
+          <div class="popover left">
+            <div class="popover-content"></div>
+            <div class="arrow"></div>
+          </div>
+        </td>
+		<td class="Query">
+		  <span></span>
+          <div class="popover left">
+            <div class="popover-content"></div>
+            <div class="arrow"></div>
+          </div>
+        </td>
 	</script>  
 	<script src="js/memory-stats.js"></script>
 	<script src="js/monitor.js"></script>
 	<script src="js/data.js"></script>
-	<script src="js/zepto.min.js"></script>
-	<script src="js/lodash.min.js"></script>  
-	<script src="js/backbone.min.js"></script>  
-	<script src="js/bundle.js"></script>
+	<script src="bundle.js"></script>
   </body>
 </html>
