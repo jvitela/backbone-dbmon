@@ -1,0 +1,15 @@
+<td class="dbname">
+  {{name}}
+</td>
+<td class="query-count">
+	<span class="{{countClassName}}">{{numQueries}}</span>
+</td>
+{{#each queries}}
+<td class="Query {{className}}">
+  <span>{{elapsed}}</span>
+  <div class="popover left">
+    <div class="popover-content">{{query}}</div>
+    <div class="arrow"></div>
+  </div>
+</td>
+{{/each}}

@@ -1,0 +1,38 @@
+{
+  "name": "backbone-dbmon",
+  "version": "1.0.0",
+  "description": "dbmon test implemented with backbone",
+  "main": "bundle.js",
+  "dependencies": {
+    "backbone": "^1.2.3",
+    "browserify-handlebars": "^1.0.0",
+    "handlebars": "^4.0.5",
+    "handlebars-browserify": "^0.0.0",
+    "incremental-dom": "^0.2.0",
+    "jquery": "^2.1.4",
+    "lodash": "^3.10.1",
+    "virtual-dom": "^2.1.1",
+    "zepto-browserify": "^1.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jvitela/backbone-dbmon.git"
+  },
+  "keywords": [
+    "dbmon",
+    "backbone",
+    "virtual-dom",
+    "incremental-dom",
+    "handlebars"
+  ],
+  "author": "jvitela",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jvitela/backbone-dbmon/issues"
+  },
+  "homepage": "https://github.com/jvitela/backbone-dbmon#readme"
+}
