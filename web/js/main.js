@@ -13,95 +13,9 @@ var ConfigPanel = require("./configPanel.js");
 var dbRowTemplate  = require("../dbRow.handlebars");
 var IncrementalDOM = require('incremental-dom');
 var VirtualDOM     = require('virtual-dom');
+var RenderScheduler = require("./RenderScheduler.js");
 
-function formatElapsed(v) {
-  if (!v) return '';
-
-  var str = parseFloat(v).toFixed(2);
-
-  if (v > 60) {
-    var minutes = Math.floor(v / 60);
-    var comps = (v % 60).toFixed(2).split('.');
-    var seconds = comps[0];
-    var ms = comps[1];
-    str = minutes + ':' + seconds + '.' + ms;
-  }
-
-  return str;
-}
-
-function counterClasses(count) {
-  if (count >= 20) {
-    return 'label label-important';
-  } else if (count >= 10) {
-    return 'label label-warning';
-  }
-  return 'label label-success';
-}
-
-function queryClasses(elapsed) {
-  if (elapsed >= 10.0) {
-    return 'Query elapsed warn_long';
-  } else if (elapsed >= 1.0) {
-    return 'Query elapsed warn';
-  }
-  return 'Query elapsed short';
-}
-
-/**
-   * Render Scheduler to render views in an animation Frame.
-   * ensures each render method is called only once per view.
-   */
-  var RenderScheduler = {
-      waiting:   {},
-      pending:   [],
-      frameId: null,
-
-      /**
-       * Schedule a view to be rendered, if it was scheduled before
-       * the previous entry will be deleted.
-       */
-      add: function(view, method, args) {
-        // Skip if the view is already waiting to be rendered
-        if( this.waiting[view.cid]) { return; }
-
-        // Add to the queue
-        this.waiting[view.cid] = true;
-        this.pending.push({
-          view:   view,
-          method: view[method],
-          args:   args
-        });        
-
-        // Request an animation frame
-        if (!this.frameId) {
-          this.frameId = window.requestAnimationFrame(this.process);
-        }
-      },
-
-      createTask: function(view, method, args) {
-        return function() {
-          RenderScheduler.add(view, method, args);
-        }
-      },
-
-      /**
-       * Render all pending views
-       */
-      process: function() {
-        var data, count = 0;
-        while (this.pending.length) {
-          data = this.pending.shift();
-          data.method.apply( data.view, data.args);
-          this.waiting[data.view.cid] = false;
-          ++count;
-        }
-        this.frameId = null;
-        //console.log("RenderScheduler::processed: " + count)
-      }
-  };
-  // Bind the process function to the scheduler
-  RenderScheduler.process = _.bind(RenderScheduler.process, RenderScheduler);
+require("./ENV.js");
 
 var DBTableRowView = Backbone.View.extend({
   tagName: "tr",
@@ -286,7 +200,6 @@ var DBTableRowView = Backbone.View.extend({
     this.$dom.$qryCount
             .attr("class", data.countClassName)
             .text( data.numQueries);
-
     for(i = 0, l = this.model.queries.length; i < l; ++i) {
       qry = this.model.queries.at(i).toJSON();
       $row = this.$dom.$rows[i];
@@ -343,11 +256,12 @@ var QueryItemModel = Backbone.Model.extend({
     "elapsed":   "",
     "query":     ""
   },
-  parse: function(data) {
+  parse: function(q) {
     return {
-      className: queryClasses(data.elapsed),
-      elapsed:   formatElapsed(data.elapsed),
-      query:     data.query
+      id:        q.id,
+      className: q.elapsedClassName || "Query",
+      elapsed:   q.formatElapsed || "",
+      query:     q.query || ""
     }
   }
 });
@@ -363,23 +277,19 @@ var DBModel = Backbone.Model.extend({
     "numQueries": "",
     "countClassName": ""
   },
-  initialize: function() {
-    this.initNestedModels();
+  constructor: function(attrs, options) {
+    this.queries = new QueryCollection();
+    Backbone.Model.call(this, attrs, options);
   },
-  parse: function(data) {
-    this.initNestedModels();
-    this.queries.set(data.getTopFiveQueries(), {parse: true});
+  parse: function(db) {
+    _.each(db.lastSample.topFiveQueries, function(q, idx){ q.id = idx; });
+    this.queries.set(db.lastSample.topFiveQueries, {parse: true});
     return {
-      id:   data.id,
-      name: data.name,
-      numQueries: data.queries.length,
-      countClassName: counterClasses(data.queries.length)
+      id:             db.id,
+      name:           db.dbname,
+      numQueries:     db.lastSample.nbQueries,
+      countClassName: db.lastSample.countClassName
     };
-  },
-  initNestedModels: function() {
-    if( !this.queries) {
-      this.queries = new QueryCollection();
-    }
   }
 });
 
@@ -388,7 +298,7 @@ DBCollection = Backbone.Collection.extend({
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-  var dbs = new DatabaseList(CONFIG.numDbs);
+  //var dbs = new DatabaseList(CONFIG.numDbs);
   var collection = new DBCollection();
   var views = [];
   var table = document.querySelector("#dbmon table tbody");
@@ -401,18 +311,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  window.CONFIG = CONFIG;
+  window.CONFIG     = CONFIG;
+  window.optimize   = false;
+  window.collection = collection;
 
   function update() {
+    var dbs, view, idx = 0;
+
+    dbs = ENV.generateData().toArray(window.optimize);
     // The trick here is to assign ids to the db items and 
-    dbs.randomUpdate(CONFIG.mutations);
     // pass them to backbone to do the parsing/dirty checking
-    _.each(dbs.dbs, function(db, idx){ db.id = idx + 1;});
-    collection.set(dbs.dbs, {parse: true});
+    _.each(dbs, function(db, idx){ db.id = idx + 1;});
+    collection.set(dbs, {parse: true});
 
     // Instantiate all row views, this is executed only one time,
     // After the views are created, the model changes will trigger updates
-    var view, idx = 0;
     while(views.length < collection.length) {
       view = new DBTableRowView({ model: collection.at(idx++) });
       views.push(view);

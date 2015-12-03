@@ -5,14 +5,6 @@
   <link href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet" type="text/css">
   <link href="styles.css" rel="stylesheet">
   <title>Backbone dbmon</title>
-  <style type="text/css">
-  	/*#config-panel {
-  		display:flex;
-  	}
-	#config-panel-slider {
-		margin-bottom: 10px;
-    	margin-top: 	5px;		
-	}*/
   </style>
 </head>
 <body>
@@ -33,7 +25,7 @@
     		<div class="col-sm-10">
     			<div class="radio"><label><input type="radio" name="render" value="Handlebars"> Handlebars </label></div>
       			<div class="radio"><label><input type="radio" name="render" value="jQuery"> jQuery/Zepto </label></div>
-      			<div class="radio"><label><input type="radio" name="render" value="DOM"> DOM </label></div>
+      			<div class="radio"><label><input type="radio" name="render" value="DOM"> Vanilla </label></div>
             <div class="radio"><label><input type="radio" name="render" value="iDOM"> Incremental DOM </label></div>
             <div class="radio"><label><input type="radio" name="render" value="vDOM"> Virtual DOM </label></div>
     		</div>
@@ -95,10 +87,9 @@
             <div class="arrow"></div>
           </div>
         </td>
-	</script>  
+	</script>
 	<script src="js/memory-stats.js"></script>
 	<script src="js/monitor.js"></script>
-	<script src="js/data.js"></script>
 	<script src="bundle.js"></script>
   </body>
 </html>

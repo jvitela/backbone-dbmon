@@ -1,5 +1,5 @@
 var CONFIG = {
-  render:     "vDOM", // jQuery, DOM, Handlebars, iDOM, vDOM
+  render:     "jQuery", // jQuery, DOM, Handlebars, iDOM, vDOM
   reqAnimFrm: false,
   cacheElems: false,
   mutations:  0.5,

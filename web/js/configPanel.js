@@ -20,6 +20,7 @@ var ConfigPanel = Backbone.View.extend({
     switch( input.name) {
       case "mutations":
         CONFIG.mutations = input.value / 100;
+        window.ENV.mutations(CONFIG.mutations);
         break;
       case "render":
         if( !input.checked) { 
