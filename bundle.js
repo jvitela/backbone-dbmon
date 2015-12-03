@@ -29109,8 +29109,295 @@ var templater = require("handlebars/runtime")["default"].template;module.exports
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.queries : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "");
 },"useData":true});
 },{"handlebars/runtime":25}],62:[function(require,module,exports){
+  var first = true;
+  var counter = 0;
+  var data;
+  var _base;
+  (_base = String.prototype).lpad || (_base.lpad = function(padding, toLength) {
+    return padding.repeat((toLength - this.length) / padding.length).concat(this);
+  });
+
+  function formatElapsed(value) {
+    str = parseFloat(value).toFixed(2);
+    if (value > 60) {
+      minutes = Math.floor(value / 60);
+      comps = (value % 60).toFixed(2).split('.');
+      seconds = comps[0].lpad('0', 2);
+      ms = comps[1];
+      str = minutes + ":" + seconds + "." + ms;
+    }
+    return str;
+  }
+
+  function getElapsedClassName(elapsed) {
+    var className = 'Query elapsed';
+    if (elapsed >= 10.0) {
+      className += ' warn_long';
+    }
+    else if (elapsed >= 1.0) {
+      className += ' warn';
+    }
+    else {
+      className += ' short';
+    }
+    return className;
+  }
+
+  function countClassName(queries) {
+    var countClassName = "label";
+    if (queries >= 20) {
+      countClassName += " label-important";
+    }
+    else if (queries >= 10) {
+      countClassName += " label-warning";
+    }
+    else {
+      countClassName += " label-success";
+    }
+    return countClassName;
+  }
+
+  function updateQuery(object) {
+    if (!object) {
+      object = {};
+    }
+    var elapsed = Math.random() * 15;
+    object.elapsed = elapsed;
+    object.formatElapsed = formatElapsed(elapsed);
+    object.elapsedClassName = getElapsedClassName(elapsed);
+    object.query = "SELECT blah FROM something";
+    object.waiting = Math.random() < 0.5;
+    if (Math.random() < 0.2) {
+      object.query = "<IDLE> in transaction";
+    }
+    if (Math.random() < 0.1) {
+      object.query = "vacuum";
+    }
+    return object;
+  }
+
+  function cleanQuery(value) {
+    if (value) {
+      value.formatElapsed = "";
+      value.elapsedClassName = "";
+      value.query = "";
+      delete value.elapsed;
+      delete value.waiting;
+    } else {
+      return {
+        query: "***",
+        formatElapsed: "",
+        elapsedClassName: ""
+      };
+    }
+  }
+
+  function generateRow(object, keepIdentity, counter) {
+    var nbQueries = Math.floor((Math.random() * 10) + 1);
+    if (!object) {
+      object = {};
+    }
+    object.lastMutationId = counter;
+    object.nbQueries = nbQueries;
+    if (!object.lastSample) {
+      object.lastSample = {};
+    }
+    if (!object.lastSample.topFiveQueries) {
+      object.lastSample.topFiveQueries = [];
+    }
+    if (keepIdentity) {
+      // for Angular optimization
+      if (!object.lastSample.queries) {
+        object.lastSample.queries = [];
+        for (var l = 0; l < 12; l++) {
+          object.lastSample.queries[l] = cleanQuery();
+        }
+      }
+      for (var j in object.lastSample.queries) {
+        var value = object.lastSample.queries[j];
+        if (j <= nbQueries) {
+          updateQuery(value);
+        } else {
+          cleanQuery(value);
+        }
+      }
+    } else {
+      object.lastSample.queries = [];
+      for (var j = 0; j < 12; j++) {
+        if (j < nbQueries) {
+          var value = updateQuery(cleanQuery());
+          object.lastSample.queries.push(value);
+        } else {
+          object.lastSample.queries.push(cleanQuery());
+        }
+      }
+    }
+    for (var i = 0; i < 5; i++) {
+      var source = object.lastSample.queries[i];
+      object.lastSample.topFiveQueries[i] = source;
+    }
+    object.lastSample.nbQueries = nbQueries;
+    object.lastSample.countClassName = countClassName(nbQueries);
+    return object;
+  }
+
+  function getData(keepIdentity) {
+    var oldData = data;
+    if (!keepIdentity) { // reset for each tick when !keepIdentity
+      data = [];
+      for (var i = 1; i <= ENV.rows; i++) {
+        data.push({ dbname: 'cluster' + i, query: "", formatElapsed: "", elapsedClassName: "" });
+        data.push({ dbname: 'cluster' + i + ' slave', query: "", formatElapsed: "", elapsedClassName: "" });
+      }
+    }
+    if (!data) { // first init when keepIdentity
+      data = [];
+      for (var i = 1; i <= ENV.rows; i++) {
+        data.push({ dbname: 'cluster' + i });
+        data.push({ dbname: 'cluster' + i + ' slave' });
+      }
+      oldData = data;
+    }
+    for (var i in data) {
+      var row = data[i];
+      if (!keepIdentity && oldData && oldData[i]) {
+        row.lastSample = oldData[i].lastSample;
+      }
+      if (!row.lastSample || Math.random() < ENV.mutations()) {
+        counter = counter + 1;
+        if (!keepIdentity) {
+          delete row.lastSample;
+        }
+        generateRow(row, keepIdentity, counter);
+      } else {
+        data[i] = oldData[i];
+      }
+    }
+    first = false;
+    return {
+      toArray: function() {
+        return data;
+      }
+    };
+  }
+
+  var mutationsValue = 0.5;
+
+  function mutations(value) {
+    if (value >= 0) {
+      mutationsValue = value;
+      return mutationsValue;
+    } else {
+      return mutationsValue;
+    }
+  }
+/*
+  var body = document.querySelector('body');
+  var theFirstChild = body.firstChild;
+
+  var sliderContainer = document.createElement( 'div' );
+  sliderContainer.style.cssText = "display: flex";
+  var slider = document.createElement('input');
+  var text = document.createElement('label');
+  text.innerHTML = 'mutations : ' + (mutationsValue * 100).toFixed(0) + '%';
+  text.id = "ratioval";
+  slider.setAttribute("type", "range");
+  slider.style.cssText = 'margin-bottom: 10px; margin-top: 5px';
+  slider.addEventListener('change', function(e) {
+    ENV.mutations(e.target.value / 100);
+    document.querySelector('#ratioval').innerHTML = 'mutations : ' + (ENV.mutations() * 100).toFixed(0) + '%';
+  });
+  sliderContainer.appendChild( text );
+  sliderContainer.appendChild( slider );
+  body.insertBefore( sliderContainer, theFirstChild );
+*/
+  window.ENV = {
+    generateData: getData,
+    rows: 50,
+    timeout: 0,
+    mutations: mutations
+  };
+  module.exports = window.ENV;
+
+},{}],63:[function(require,module,exports){
+var _ = require("lodash");
+
+/**
+* Render Scheduler to re views in an animation Frame.
+* ensures each render method is called only once per view.
+*/
+var RenderScheduler = {
+  active:  true,
+  //maxTasksPerFrame: 10000,
+  waiting: {},
+  pending: [],
+  frameId: null,
+
+  /**
+   * Schedule a view to be rendered, if it was scheduled before
+   * the previous entry will be deleted.
+   */
+  add: function(view, method, args) {
+    var key = view.cid + "::" + method,
+        idx = this.waiting[key];
+    // Skip if the view is already waiting to be rendered
+    if( idx >= 0) { 
+        this.pending[key] = {
+          id:     key,
+          view:   view,
+          method: view[method],
+          args:   args
+        };
+    } else {
+        // Add to the queue
+        this.waiting[key] = this.pending.length;
+        this.pending.push({
+          id:     key,
+          view:   view,
+          method: view[method],
+          args:   args
+        });
+    }
+
+    // Request an animation frame
+    if (!this.frameId) {
+      this.frameId = window.requestAnimationFrame(this.process);
+    }
+  },
+
+  createTask: function(view, method) {
+    return function() {
+      RenderScheduler.active ?
+      RenderScheduler.add(view, method, arguments):
+      view[method].apply(view, arguments);
+    }
+  },
+
+  /**
+   * Render all pending views
+   */
+  process: function() {
+    var data, count = 0;
+    while (this.pending.length /*&& count < this.maxTasksPerFrame*/) {
+      data = this.pending.shift();
+      data.method.apply( data.view, data.args);
+      delete this.waiting[data.id];
+      ++count;
+    }
+    /*if( this.pending.length) {
+        this.frameId = window.requestAnimationFrame(this.process);
+    } else {*/
+        this.frameId = null;
+    //}
+    //console.log("RenderScheduler::processed: " + count)
+  }
+};
+// Bind the process function to the scheduler
+RenderScheduler.process = _.bind(RenderScheduler.process, RenderScheduler);
+module.exports = RenderScheduler;
+},{"lodash":31}],64:[function(require,module,exports){
 var CONFIG = {
-  render:     "vDOM", // jQuery, DOM, Handlebars, iDOM, vDOM
+  render:     "jQuery", // jQuery, DOM, Handlebars, iDOM, vDOM
   reqAnimFrm: false,
   cacheElems: false,
   mutations:  0.5,
@@ -29118,7 +29405,7 @@ var CONFIG = {
 };
 
 module.exports = CONFIG;
-},{}],63:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 var $ = require("jquery");
 var _ = require("lodash");
 var Backbone = require("backbone");
@@ -29141,6 +29428,7 @@ var ConfigPanel = Backbone.View.extend({
     switch( input.name) {
       case "mutations":
         CONFIG.mutations = input.value / 100;
+        window.ENV.mutations(CONFIG.mutations);
         break;
       case "render":
         if( !input.checked) { 
@@ -29174,7 +29462,7 @@ var ConfigPanel = Backbone.View.extend({
 });
 
 module.exports = ConfigPanel;
-},{"./config.js":62,"backbone":3,"jquery":30,"lodash":31}],64:[function(require,module,exports){
+},{"./config.js":64,"backbone":3,"jquery":30,"lodash":31}],66:[function(require,module,exports){
 /*
  * http://blog.nparashuram.com/2015/03/performance-comparison-on-javascript.html
  * https://www.npmjs.com/package/browserify-handlebars
@@ -29190,95 +29478,9 @@ var ConfigPanel = require("./configPanel.js");
 var dbRowTemplate  = require("../dbRow.handlebars");
 var IncrementalDOM = require('incremental-dom');
 var VirtualDOM     = require('virtual-dom');
+var RenderScheduler = require("./RenderScheduler.js");
 
-function formatElapsed(v) {
-  if (!v) return '';
-
-  var str = parseFloat(v).toFixed(2);
-
-  if (v > 60) {
-    var minutes = Math.floor(v / 60);
-    var comps = (v % 60).toFixed(2).split('.');
-    var seconds = comps[0];
-    var ms = comps[1];
-    str = minutes + ':' + seconds + '.' + ms;
-  }
-
-  return str;
-}
-
-function counterClasses(count) {
-  if (count >= 20) {
-    return 'label label-important';
-  } else if (count >= 10) {
-    return 'label label-warning';
-  }
-  return 'label label-success';
-}
-
-function queryClasses(elapsed) {
-  if (elapsed >= 10.0) {
-    return 'Query elapsed warn_long';
-  } else if (elapsed >= 1.0) {
-    return 'Query elapsed warn';
-  }
-  return 'Query elapsed short';
-}
-
-/**
-   * Render Scheduler to render views in an animation Frame.
-   * ensures each render method is called only once per view.
-   */
-  var RenderScheduler = {
-      waiting:   {},
-      pending:   [],
-      frameId: null,
-
-      /**
-       * Schedule a view to be rendered, if it was scheduled before
-       * the previous entry will be deleted.
-       */
-      add: function(view, method, args) {
-        // Skip if the view is already waiting to be rendered
-        if( this.waiting[view.cid]) { return; }
-
-        // Add to the queue
-        this.waiting[view.cid] = true;
-        this.pending.push({
-          view:   view,
-          method: view[method],
-          args:   args
-        });        
-
-        // Request an animation frame
-        if (!this.frameId) {
-          this.frameId = window.requestAnimationFrame(this.process);
-        }
-      },
-
-      createTask: function(view, method, args) {
-        return function() {
-          RenderScheduler.add(view, method, args);
-        }
-      },
-
-      /**
-       * Render all pending views
-       */
-      process: function() {
-        var data, count = 0;
-        while (this.pending.length) {
-          data = this.pending.shift();
-          data.method.apply( data.view, data.args);
-          this.waiting[data.view.cid] = false;
-          ++count;
-        }
-        this.frameId = null;
-        //console.log("RenderScheduler::processed: " + count)
-      }
-  };
-  // Bind the process function to the scheduler
-  RenderScheduler.process = _.bind(RenderScheduler.process, RenderScheduler);
+require("./ENV.js");
 
 var DBTableRowView = Backbone.View.extend({
   tagName: "tr",
@@ -29463,7 +29665,6 @@ var DBTableRowView = Backbone.View.extend({
     this.$dom.$qryCount
             .attr("class", data.countClassName)
             .text( data.numQueries);
-
     for(i = 0, l = this.model.queries.length; i < l; ++i) {
       qry = this.model.queries.at(i).toJSON();
       $row = this.$dom.$rows[i];
@@ -29520,11 +29721,12 @@ var QueryItemModel = Backbone.Model.extend({
     "elapsed":   "",
     "query":     ""
   },
-  parse: function(data) {
+  parse: function(q) {
     return {
-      className: queryClasses(data.elapsed),
-      elapsed:   formatElapsed(data.elapsed),
-      query:     data.query
+      id:        q.id,
+      className: q.elapsedClassName || "Query",
+      elapsed:   q.formatElapsed || "",
+      query:     q.query || ""
     }
   }
 });
@@ -29540,23 +29742,19 @@ var DBModel = Backbone.Model.extend({
     "numQueries": "",
     "countClassName": ""
   },
-  initialize: function() {
-    this.initNestedModels();
+  constructor: function(attrs, options) {
+    this.queries = new QueryCollection();
+    Backbone.Model.call(this, attrs, options);
   },
-  parse: function(data) {
-    this.initNestedModels();
-    this.queries.set(data.getTopFiveQueries(), {parse: true});
+  parse: function(db) {
+    _.each(db.lastSample.topFiveQueries, function(q, idx){ q.id = idx; });
+    this.queries.set(db.lastSample.topFiveQueries, {parse: true});
     return {
-      id:   data.id,
-      name: data.name,
-      numQueries: data.queries.length,
-      countClassName: counterClasses(data.queries.length)
+      id:             db.id,
+      name:           db.dbname,
+      numQueries:     db.lastSample.nbQueries,
+      countClassName: db.lastSample.countClassName
     };
-  },
-  initNestedModels: function() {
-    if( !this.queries) {
-      this.queries = new QueryCollection();
-    }
   }
 });
 
@@ -29565,7 +29763,7 @@ DBCollection = Backbone.Collection.extend({
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-  var dbs = new DatabaseList(CONFIG.numDbs);
+  //var dbs = new DatabaseList(CONFIG.numDbs);
   var collection = new DBCollection();
   var views = [];
   var table = document.querySelector("#dbmon table tbody");
@@ -29578,18 +29776,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  window.CONFIG = CONFIG;
+  window.CONFIG     = CONFIG;
+  window.optimize   = false;
+  window.collection = collection;
 
   function update() {
+    var dbs, view, idx = 0;
+
+    dbs = ENV.generateData().toArray(window.optimize);
     // The trick here is to assign ids to the db items and 
-    dbs.randomUpdate(CONFIG.mutations);
     // pass them to backbone to do the parsing/dirty checking
-    _.each(dbs.dbs, function(db, idx){ db.id = idx + 1;});
-    collection.set(dbs.dbs, {parse: true});
+    _.each(dbs, function(db, idx){ db.id = idx + 1;});
+    collection.set(dbs, {parse: true});
 
     // Instantiate all row views, this is executed only one time,
     // After the views are created, the model changes will trigger updates
-    var view, idx = 0;
     while(views.length < collection.length) {
       view = new DBTableRowView({ model: collection.at(idx++) });
       views.push(view);
@@ -29602,4 +29803,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
   setTimeout(update, 0);
 });
-},{"../dbRow.handlebars":61,"./config.js":62,"./configPanel.js":63,"backbone":3,"incremental-dom":26,"jquery":30,"lodash":31,"virtual-dom":36}]},{},[64]);
+},{"../dbRow.handlebars":61,"./ENV.js":62,"./RenderScheduler.js":63,"./config.js":64,"./configPanel.js":65,"backbone":3,"incremental-dom":26,"jquery":30,"lodash":31,"virtual-dom":36}]},{},[66]);
